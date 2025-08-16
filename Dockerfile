@@ -1,19 +1,15 @@
+FROM ubuntu:20.04 AS build
+ENV DEBIAN_FRONTEND=noninteractive  #Prevents Ubuntu from asking for input during package installation (like timezone or yes/no questions).
+# Makes Docker builds smoother (non-interactive).
+RUN apt update -y
+RUN apt install maven git -y
+RUN apt install openjdk-17-jdk -y
+RUN git clone https://github.com/imran90306/JavaWebCalculator.git
+WORKDIR /JavaWebCalculator
+RUN mvn package
+
 FROM tomcat:9-jdk17
-
-RUN useradd -ms /bin/bash jenkins
-RUN echo "jenkins ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
-# Copy the WAR file from the target directory into Tomcat's webapps folder
-COPY target/*.war /usr/local/tomcat/webapps/
-
-# Apply permissions to the copied WAR file(s)
-RUN chmod 755 /usr/local/tomcat/webapps/*.war
-
-# Ensure Jenkins user owns the necessary files
-RUN chown -R jenkins:jenkins /usr/local/tomcat/webapps
-
-# Expose the Tomcat default port
+COPY --from=build /JavaWebCalculator/target/*.war /usr/local/tomcat/webapps
+RUN chmod -R 755 /usr/local/tomcat
 EXPOSE 8080
-
-# Start Tomcat
-CMD ["catalina.sh", "run"]
+CMD ["catalina.sh","run"]
