@@ -1,14 +1,17 @@
-# Use lightweight JDK base image
-FROM eclipse-temurin:17-jdk-jammy
+# Use official Tomcat image with JDK 17
+FROM tomcat:9.0-jdk17-temurin
 
-# Set working directory
-WORKDIR /app
+# Set working directory inside the container
+WORKDIR /usr/local/tomcat/webapps/
 
-# Copy the jar built by GitHub Actions (always renamed to app.jar)
-COPY target/app.jar app.jar
+# Remove default ROOT app (optional)
+RUN rm -rf ROOT
 
-# Expose application port
+# Copy WAR from build into Tomcat's webapps folder
+COPY target/*.war ROOT.war
+
+# Expose port 8080 for Tomcat
 EXPOSE 8080
 
-# Run the jar
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Start Tomcat
+CMD ["catalina.sh", "run"]
