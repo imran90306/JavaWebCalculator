@@ -1,17 +1,14 @@
-FROM ubuntu:20.04 AS build
-
-# Prevents Ubuntu from asking for input during package installation (like timezone or yes/no questions).
-ENV DEBIAN_FRONTEND=noninteractive  
-
-RUN apt update -y
-RUN apt install -y maven git openjdk-17-jdk
-
-# Clone repo and build jar
-RUN git clone https://github.com/imran90306/JavaWebCalculator.git
-WORKDIR /JavaWebCalculator
+# Step 1: Use Maven image to build the JAR
+FROM maven:3.9.5-eclipse-temurin-17 AS build
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
 RUN mvn clean package -DskipTests
 
-# ---- Runtime Stage ----
-FROM openjdk:17-jdk-slim
-COPY --from=build /JavaWebCalculator/target/*.jar app.jar
+# Step 2: Run the JAR with a slim JDK image
+FROM eclipse-temurin:17-jdk-jammy
+WORKDIR /app
+# copy JAR from build stage
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
