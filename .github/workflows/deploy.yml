@@ -1,4 +1,4 @@
-name: Build Maven Jar and Push Docker Image to ECR
+name: Build Maven Jar, Push Docker Image to ECR, and Deploy to EC2
 
 on:
   push:
@@ -50,5 +50,30 @@ jobs:
           echo "Pushing image to ECR..."
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
+      # 7. Show image URI
+      - name: Image URI
+        run: echo "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
 
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "Logging into ECR..."
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+
+            echo "Pulling latest image..."
+            docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+
+            echo "Stopping old container..."
+            docker stop myapp || true && docker rm myapp || true
+
+            echo "Running new container..."
+            docker run -d --name myapp -p 8080:8080 ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
