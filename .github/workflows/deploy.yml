@@ -3,7 +3,7 @@ name: Build Maven Jar and Push Docker Image to ECR
 on:
   push:
     branches:
-      - master   # Run only when code is pushed to main branch
+      - master   # Run only when code is pushed to master branch
 
 jobs:
   build:
