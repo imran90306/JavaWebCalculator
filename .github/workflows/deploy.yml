@@ -1,9 +1,9 @@
-name: Build Maven Jar, Push Docker Image to ECR, and Deploy to EC2
+name: Build Maven Artifact, Push Docker Image to ECR, and Deploy to EC2
 
 on:
   push:
     branches:
-      - master
+      - master   # Run only when code is pushed to master branch
 
 jobs:
   build:
@@ -14,32 +14,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2. Set up Java
+      # 2. Set up Java (for Maven)
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. Build jar with Maven
+      # 3. Build artifact with Maven (WAR or JAR)
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
-      # 4. Rename the jar consistently to app.jar
-      - name: Rename jar
+      # 4. Find and rename artifact (supports both .jar and .war)
+      - name: Rename artifact
         run: |
           echo "Listing target/ folder..."
           ls -lh target/
 
-          JAR_FILE=$(ls target/*.jar | grep -v 'original' | head -n 1)
-          echo "Found jar: $JAR_FILE"
+          ARTIFACT_FILE=$(ls target/*.jar 2>/dev/null | grep -v 'original' | head -n 1 || true)
 
-          if [ -z "$JAR_FILE" ]; then
-            echo "❌ No jar file found. Failing build."
+          if [ -z "$ARTIFACT_FILE" ]; then
+            ARTIFACT_FILE=$(ls target/*.war | head -n 1)
+          fi
+
+          echo "Found artifact: $ARTIFACT_FILE"
+
+          if [ -z "$ARTIFACT_FILE" ]; then
+            echo "❌ No jar/war file found. Failing build."
             exit 1
           fi
 
-          cp "$JAR_FILE" target/app.jar
+          cp "$ARTIFACT_FILE" target/app.jar
           ls -lh target/
 
       # 5. Configure AWS credentials
@@ -50,24 +55,25 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 6. Login to ECR
+      # 6. Login to Amazon ECR
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      # 7. Build & Push Docker image
+      # 7. Build, Tag, and Push Docker image
       - name: Build, Tag, and Push image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          echo "Building Docker image with JAR..."
+          echo "Building Docker image with artifact..."
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           echo "Pushing image to ECR..."
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Show image URI
+      # 8. Show image URI
+      - name: Image URI
         run: echo "${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}"
 
   deploy:
@@ -81,11 +87,16 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo "Logging into ECR..."
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-              | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+            echo "Setting AWS credentials..."
+            export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            export AWS_REGION=${{ secrets.AWS_REGION }}
 
-            IMAGE="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}"
+            echo "Logging into ECR..."
+            aws ecr get-login-password --region $AWS_REGION \
+              | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
+
+            IMAGE="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}"
 
             echo "Pulling latest image..."
             docker pull $IMAGE
