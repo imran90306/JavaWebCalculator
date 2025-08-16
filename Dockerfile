@@ -1,15 +1,17 @@
 FROM ubuntu:20.04 AS build
-ENV DEBIAN_FRONTEND=noninteractive  #Prevents Ubuntu from asking for input during package installation (like timezone or yes/no questions).
-# Makes Docker builds smoother (non-interactive).
+
+# Prevents Ubuntu from asking for input during package installation (like timezone or yes/no questions).
+ENV DEBIAN_FRONTEND=noninteractive  
+
 RUN apt update -y
-RUN apt install maven git -y
-RUN apt install openjdk-17-jdk -y
+RUN apt install -y maven git openjdk-17-jdk
+
+# Clone repo and build jar
 RUN git clone https://github.com/imran90306/JavaWebCalculator.git
 WORKDIR /JavaWebCalculator
-RUN mvn package
+RUN mvn clean package -DskipTests
 
-FROM tomcat:9-jdk17
-COPY --from=build /JavaWebCalculator/target/*.war /usr/local/tomcat/webapps
-RUN chmod -R 755 /usr/local/tomcat
-EXPOSE 8080
-CMD ["catalina.sh","run"]
+# ---- Runtime Stage ----
+FROM openjdk:17-jdk-slim
+COPY --from=build /JavaWebCalculator/target/*.jar app.jar
+ENTRYPOINT ["java", "-jar", "app.jar"]
