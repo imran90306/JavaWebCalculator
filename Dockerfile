@@ -1,13 +1,14 @@
-# Stage 1: Build JAR with Maven
-FROM maven:3.9.5-eclipse-temurin-17 AS build
-WORKDIR /app
-COPY pom.xml .
-COPY src ./src
-RUN mvn clean package -DskipTests
-
-# Stage 2: Run JAR with lightweight JDK
+# Use lightweight JDK base image
 FROM eclipse-temurin:17-jdk-jammy
+
+# Set working directory
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+
+# Copy the jar built by GitHub Actions (always renamed to app.jar)
+COPY target/app.jar app.jar
+
+# Expose application port
 EXPOSE 8080
+
+# Run the jar
 ENTRYPOINT ["java", "-jar", "app.jar"]
