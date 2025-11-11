@@ -31,16 +31,5 @@ spec:
               cpu: "500m"
               memory: "512Mi"
 
-*************************************************************************************************************
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-service
-spec:
-  selector:
-    app: my-app
-  ports:
-    - protocol: TCP
-      port: 80          # External port
-      targetPort: 80    # Container port
-  type: LoadBalancer   # Creates an AWS ELB for external access
+
+
