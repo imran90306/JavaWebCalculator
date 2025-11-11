@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: my-container
-          image:   # will be updated by GitHub Actions
+          image: YOUR_IMAGE_URI  # will be updated by GitHub Actions
           ports:
             - containerPort: 80
           env:
@@ -30,3 +30,17 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+
+*************************************************************************************************************
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: my-app
+  ports:
+    - protocol: TCP
+      port: 80          # External port
+      targetPort: 80    # Container port
+  type: LoadBalancer   # Creates an AWS ELB for external access
