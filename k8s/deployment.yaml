@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: my-container
-          image: YOUR_IMAGE_URI  # will be updated by GitHub Actions
+          image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/<REPOSITORY_NAME>:latest # will be updated by GitHub Actions
           ports:
             - containerPort: 80
           env:
