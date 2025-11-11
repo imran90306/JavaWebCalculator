@@ -87,6 +87,15 @@ jobs:
       # 10. Deploy to EKS (Update Image in Deployment)
       - name: Deploy to EKS (Update Image in Deployment)
         run: |
-          echo "Deploying image: $IMAGE_URI"
-          kubectl set image deployment/my-deployment my-container=$IMAGE_URI --record
-          kubectl rollout status deployment/my-deployment
+            echo "Deploying image: $IMAGE_URI"
+
+            if kubectl get deployment my-deployment >/dev/null 2>&1; then
+               echo "Updating existing deployment..."
+               kubectl set image deployment/my-deployment my-container=$IMAGE_URI --record
+            else
+               echo "Deployment not found. Creating..."
+               kubectl apply -f k8s/deployment.yaml
+               kubectl apply -f k8s/service.yaml
+             fi
+
+             kubectl rollout status deployment/my-deployment
