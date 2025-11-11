@@ -72,8 +72,21 @@ jobs:
           echo "Pushing image to ECR..."
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      # 8. Show image URI
-      - name: Image URI
-        run: echo "${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}"
+      # 8. Construct and export image URI
+      - name: Set IMAGE_URI
+        id: image_uri
+        run: echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_ENV
 
-  
+      # 9. Update kubeconfig for EKS cluster
+      - name: Update kubeconfig for EKS cluster
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ secrets.AWS_REGION }} \
+            --name ${{ secrets.EKS_CLUSTER_NAME }}
+
+      # 10. Deploy to EKS (Update Image in Deployment)
+      - name: Deploy to EKS (Update Image in Deployment)
+        run: |
+          echo "Deploying image: $IMAGE_URI"
+          kubectl set image deployment/my-deployment my-container=$IMAGE_URI --record
+          kubectl rollout status deployment/my-deployment
